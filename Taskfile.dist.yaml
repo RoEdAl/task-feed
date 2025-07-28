@@ -1,0 +1,308 @@
+#
+# main.yaml
+#
+
+version: '3'
+
+includes:
+  dev: task/dev
+
+env:
+  LC_COLLATE: en_US.utf8
+
+vars:
+  PKGS: >-
+    go-task
+    gomplate
+
+tasks:
+  signing-key-create:
+    run: once
+    desc: Prepare signing keys
+    status:
+      - test -s signing-key/key-build
+      - test -s signing-key/key-build.pub
+    preconditions:
+      - sh: test -x openwrt-sdk/staging_dir/host/bin/usign
+        msg: usign utility not found
+    cmds:
+      - cmd: mkdir -p signing-key
+      - cmd: |
+          #
+          # https://openwrt.org/docs/guide-user/security/keygen#obtain_usign
+          #
+          openwrt-sdk/staging_dir/host/bin/usign -G \
+            -c 'OpenWRT usign key of Edmunt Pienkowsky' \
+            -s signing-key/key-build \
+            -p signing-key/key-build.pub
+        silent: true
+
+  signing-key-fingerprint:
+    desc: Compute fingerprint of signing key
+    deps:
+      - signing-key-create
+    preconditions:
+      - sh: test -x openwrt-sdk/staging_dir/host/bin/usign
+        msg: usign utility not found
+      - sh: test -s signing-key/key-build.pub
+        msg: Signing key not found
+    vars:
+      FINGERPRINT:
+        sh: openwrt-sdk/staging_dir/host/bin/usign -F -p signing-key/key-build.pub
+    cmds:
+      - echo '{{.FINGERPRINT}}' > signing-key/fingerprint
+      - touch -cr signing-key/key-build.pub signing-key/fingerprint
+
+  signing-key-copy:
+    desc: Copy signing keys to OpenWRT SDK directory
+    status:
+      - test -s openwrt-sdk/key-build
+      - test -s openwrt-sdk/key-build.pub
+    preconditions:
+      - sh: test -d openwrt-sdk
+        msg: OpenWRT SDK not installed
+    deps:
+      - signing-key-create
+    cmds:
+      - cmd: cp signing-key/key-build openwrt-sdk
+        silent: true
+      - cmd: cp signing-key/key-build.pub openwrt-sdk
+        silent: true
+
+  signing-key-init:
+    internal: true
+    cmds:
+      - task: signing-key-create
+      - task: signing-key-fingerprint
+      - task: signing-key-copy
+
+  signing-key-publish:
+    desc: Publish signing key
+    preconditions:
+      - sh: test -s signing-key/key-build.pub
+        msg: Signing key not found
+      - sh: test -s signing-key/fingerprint
+        msg: Fingerprint of signing key not found
+      - sh: test -d feeds
+        msg: Fedds directory does not exitst
+    vars:
+      FINGERPRINT:
+        sh: cat signing-key/fingerprint
+    cmds:
+      - mkdir -p feeds/signing-key
+      - cp signing-key/key-build.pub feeds/signing-key/{{.FINGERPRINT}}
+
+  feeds-configure:
+    desc: Configure feeds
+    dir: openwrt-sdk
+    status:
+      - test -s feeds.conf
+    cmds:
+      - cp feeds.conf.default feeds.conf
+      - echo 'src-link gomplate {{joinPath .ROOT_DIR "packages"}}' >> feeds.conf
+
+  feeds-install:
+    desc: Install and/or update feeds
+    dir: openwrt-sdk
+    cmds:
+      - ./scripts/feeds update -a
+      - task: 'dev:packages-apply-patch'
+      - ./scripts/feeds install -a
+      - ./scripts/feeds install {{.PKGS}}
+
+  feeds-init:
+    internal: true
+    cmds:
+      - task: feeds-configure
+      - task: feeds-install
+
+  sdk-configure:
+    desc: Configure OpenWRT SDK
+    dir: openwrt-sdk
+    status:
+      - test -s .config
+    cmds:
+      - cp {{joinPath .ROOT_DIR "openwrt" "diffconfig" | relPath .TASK_DIR | shellQuote}} .config
+      - make defconfig
+
+  package-compile:
+    desc: Compile packages
+    dir: openwrt-sdk
+    cmds:
+      - for: { var: PKGS }
+        cmd: make package/{{.ITEM}}/compile {{.CLI_ARGS}}
+
+  package-clean:
+    desc: Clean-up packages
+    dir: openwrt-sdk
+    cmds:
+      - for: { var: PKGS }
+        cmd: make package/{{.ITEM}}/clean {{.CLI_ARGS}}
+
+  package-index:
+    desc: Index packages
+    dir: openwrt-sdk
+    cmds:
+      - make package/index
+
+  copy-pkgs-*:
+    internal: true
+    label: copy-pkgs-{{index .MATCH 0 | dir | base}}
+    vars:
+      ARCH: '{{index .MATCH 0 | dir | base}}'
+      PKG_DIR: '{{index .MATCH 0 | joinPath "openwrt-sdk" "bin" "packages"}}'
+      DST_DIR: '{{joinPath "feeds" .ARCH}}'
+    cmds:
+      - mkdir -p {{.DST_DIR}}
+      - cp -a {{.PKG_DIR}} {{.DST_DIR}}
+      - touch -cr {{dir .PKG_DIR}} {{.DST_DIR}}
+
+  package-copy-to-feeds:
+    desc: Copy packages to feeds
+    vars:
+      PKG_DIRS:
+        sh: |
+          for p in openwrt-sdk/bin/packages/*/gomplate; do
+            echo ${p#openwrt-sdk/bin/packages/}
+          done
+    cmds:
+      - cmd: mkdir -p feeds
+      - for:
+          var: PKG_DIRS
+        task:  copy-pkgs-{{.ITEM}}
+
+  create-index:
+    desc: Create index.html
+    internal: true
+    dir: feeds
+    silent: true
+    requires:
+      vars: ['DIR', 'TIMESTAMP']
+    vars:
+      SDIR: '{{.DIR | default "."}}'
+      DOC_DIR: '{{joinPath "/" .DIR}}'
+      INDEX_HTML: '{{joinPath .SDIR "index.html"}}'
+      HTML_HEADER: >-
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <title>Directory listing of {{.DOC_DIR}}</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+          <meta http-equiv="Pragma" content="no-cache" />
+          <meta http-equiv="Expires" content="0" />
+          <style>
+            table { width: 95%; border-collapse: collapse; margin-left: auto; margin-right: auto}
+            table tbody, tbody td { border: 1px solid }
+            tbody th { border: 2px solid }
+            tbody th, tbody td { padding: .3ex }
+            thead th, thead td { padding-bottom: .5em }
+            tr.updir td { font-size: larger; font-weight: bold }
+            tr.feed td { font-weight: bold }
+            tr.folder td { font-weight: bold }
+            tr.script td { font-family: monospace; }
+            tr.file td { font-size: smaller; font-family: system-ui }
+            tr td.name { text-align: left }
+            tr td.fsize { text-align: right }
+            footer { text-align: center; padding-top: 1em }
+          </style>
+        </head>
+        <body>
+        <h1>Directory Listing: <em>{{.DOC_DIR}}</em></h1>
+        <table>
+      HTML_DIR_UP: >-
+        {{if ne .SDIR  "."}}
+        <thead>
+        <tr class="updir"><td colspan="2">
+        <a href="..">··</a>
+        </td></tr>
+        </thead>
+        {{end}}
+      TABLE_BODY: >-
+        <tbody>
+        <tr>
+          <th class="fname">Name</th>
+          <th class="fsize">Size</th>
+        </tr>
+      HTML_LIST:
+        sh: |
+          ls -1 --group-directories-first "{{.SDIR}}" --ignore=index.html --ignore=tmp | while read file; do
+              ehref="$file"
+              if [ -d "{{.SDIR}}/${file}" ]; then
+                if [ -d "{{.SDIR}}/${file}/gomplate" ]; then
+                  eclass=feed
+                else
+                  eclass=folder
+                fi
+              elif [ "${file##*.}" = "ipk" ]; then
+                fsize=$(stat -c%s "{{.SDIR}}/${file}")
+                hfsize=$(numfmt --to=iec ${fsize})
+                eclass=ipk
+                echo "<tr class=\"${eclass}\"><td><a href=\"${file}\">${file}</a></td><td class=\"fsize\">${hfsize}</td></tr>"
+                continue
+              elif [ "${file##*.}" = "sh" ]; then
+                eclass=script
+              else
+                eclass=file
+              fi
+              echo "<tr class=\"${eclass}\"><td colspan=\"2\"><a href=\"${file}\">${file}</a></td></tr>"
+          done
+      HTML_FOOTER: >-
+        </tbody></table>
+        <footer>Generated on <code>{{html .TIMESTAMP}}</code>.
+        {{if env "GIT_COMMIT"}}<br>Commit: <a href="https://github.com/RoEdAl/task-feed/commit/{{env "GIT_COMMIT"}}" target="_blank" rel="noopener noreferrer">{{env "GIT_COMMIT" | substr 0 7 | html}}</a>.{{end}}
+        </footer>
+        </body></html>
+    cmds:
+      - cmd: "echo 'Generating index: {{.INDEX_HTML}}'"
+      - cmd: |
+          cat << EOF > "{{.INDEX_HTML}}"
+          {{.HTML_HEADER}}
+          {{trim .HTML_DIR_UP}}
+          {{.TABLE_BODY}}
+          {{.HTML_LIST}}
+          {{.HTML_FOOTER}}
+          EOF
+
+  directory-listing:
+    internal: true
+    dir: feeds
+    requires:
+      vars:
+        - TIMESTAMP
+    vars:
+      DIRS:
+        sh: find . -type d -not -path '*/[@.]*' -not -path '*/tmp' -printf '%P\n'
+    cmds:
+      - for: { var: DIRS, split: "\n" }
+        task: create-index
+        vars:
+          DIR: '{{.ITEM}}'
+          TIMESTAMP: '{{.TIMESTAMP}}'    
+
+  feeds-prepare:
+    desc: Prepare feeds directory
+    dir: feeds
+    vars:
+      TIMESTAMP: '{{date "2006-01-02T15:04:05Z07:00" now}}'
+    cmds:
+      - cmd: touch -d "{{.TIMESTAMP}}" .nojekyll
+      - cmd: cp ../openwrt/task-feed.sh .
+      - task: signing-key-publish
+      - task: directory-listing
+        vars:
+          TIMESTAMP: '{{.TIMESTAMP}}'
+
+  default:
+    aliases:
+      - build
+    desc: Build packages
+    deps:
+      - signing-key-init
+      - feeds-init
+    cmds:
+      - task: sdk-configure
+      - task: package-clean
+      - task: package-compile
+      - task: package-index

@@ -1,0 +1,8 @@
+Taskfile.yml
+Taskfile.yaml
+openwrt-sdk
+openwrt-sdk-*/
+openwrt-sdk-*.tar.*
+feeds/
+signing-key/
+

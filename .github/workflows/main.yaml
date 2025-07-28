@@ -1,0 +1,204 @@
+name: Deploy OpenWRT fedds to GiHub Pages
+
+on:
+  # Runs on pushes targeting the default branch
+  #push:
+  #  branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  TASK_OUTPUT_MODE: prefixed
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        target:
+          - target: x86_64
+            sdk-path: x86/64
+            sdk-name: x86-64_gcc-13.3.0_musl
+          - target: aarch64_generic
+            sdk-path: rockchip/armv8
+            sdk-name: rockchip-armv8_gcc-13.3.0_musl
+          - target: aarch64_cortex-a53
+            sdk-path: sunxi/cortexa53
+            sdk-name: sunxi-cortexa53_gcc-13.3.0_musl
+          - target: aarch64_cortex-a72
+            sdk-path: bcm27xx/bcm2711
+            sdk-name: bcm27xx-bcm2711_gcc-13.3.0_musl
+          - target: aarch64_cortex-a76
+            sdk-path: bcm27xx/bcm2712
+            sdk-name: bcm27xx-bcm2712_gcc-13.3.0_musl
+          - target: arm_cortex-a7
+            sdk-path: mediatek/mt7629
+            sdk-name: mediatek-mt7629_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a7_neon-vfpv4
+            sdk-path: sunxi/cortexa7
+            sdk-name: sunxi-cortexa7_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a8_vfpv3
+            sdk-path: sunxi/cortexa8
+            sdk-name: sunxi-cortexa8_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a9
+            sdk-path: bcm53xx/generic
+            sdk-name: bcm53xx-generic_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a9_neon
+            sdk-path: imx/cortexa9
+            sdk-name: imx-cortexa9_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a9_vfpv3-d16
+            sdk-path: mvebu/cortexa9
+            sdk-name: mvebu-cortexa9_gcc-13.3.0_musl_eabi
+          - target: arm_cortex-a15_neon-vfpv4
+            sdk-path: ipq806x/generic
+            sdk-name: ipq806x-generic_gcc-13.3.0_musl_eabi
+          - target: arm_arm1176jzf-s_vfp
+            sdk-path: bcm27xx/bcm2708
+            sdk-name: bcm27xx-bcm2708_gcc-13.3.0_musl_eabi
+          - target: mipsel_mips32
+            sdk-path: bcm47xx/generic
+            sdk-name: bcm47xx-generic_gcc-13.3.0_musl
+          - target: riscv64_riscv64
+            sdk-path: starfive/generic
+            sdk-name: starfive-generic_gcc-13.3.0_musl
+          - target: mips64_mips64r2
+            sdk-path: malta/be64
+            sdk-name: malta-be64_gcc-13.3.0_musl
+          - target: mips64el_mips64r2
+            sdk-path: malta/le64
+            sdk-name: malta-le64_gcc-13.3.0_musl            
+
+    steps:
+      - name: Install required packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          DEBIAN_PRIORITY: critical
+          DEBCONF_NONINTERACTIVE_SEEN: 'true'
+          DEBCONF_NOWARNINGS: 'yes'
+        run: |
+          sudo apt-get -qq update -y
+          sudo apt-get -qq -o Dpkg::Use-Pty=0 -o APT::Acquire::Retries=10 install -y --no-install-recommends python3-pyelftools
+
+      - name: Install (go-)task
+        run: |
+          wget -q http://github.com/go-task/task/releases/latest/download/task_linux_amd64.deb
+          sudo dpkg --install task_linux_amd64.deb
+          rm task_linux_amd64.deb
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Calculate image name and URL
+        id: owrtsdk
+        run: |
+          image_name=openwrt-sdk-24.10.2-${{matrix.target.sdk-name}}.Linux-x86_64
+          image_url=http://downloads.openwrt.org/releases/24.10.2/targets/${{matrix.target.sdk-path}}
+          echo "IMAGE_NAME=$image_name" >> $GITHUB_OUTPUT
+          echo "IMAGE_URL=$image_url" >> $GITHUB_OUTPUT
+
+      - name: Download and extract SDK
+        run: |
+          wget -q ${{steps.owrtsdk.outputs.IMAGE_URL}}/${{steps.owrtsdk.outputs.IMAGE_NAME}}.tar.zst
+          tar -xf ${{steps.owrtsdk.outputs.IMAGE_NAME}}.tar.zst
+          ln -s ${{steps.owrtsdk.outputs.IMAGE_NAME}} openwrt-sdk
+
+      - name: Prepare signing key
+        run: |
+          mkdir -p signing-key
+          
+          cat << USIGN > signing-key/key-build
+          ${{secrets.BUILDKEY}}
+          USIGN
+
+          cat << USIGN > signing-key/key-build.pub
+          ${{secrets.BUILDKEY_PUB}}
+          USIGN
+
+      - name: Build packages
+        run: task -o ${{ env.TASK_OUTPUT_MODE }} build
+
+      - name: Copy packages
+        run: task -o ${{ env.TASK_OUTPUT_MODE }} package-copy-to-feeds
+
+      - name: Upload feed
+        uses: actions/upload-artifact@v4
+        with:
+          name: owrt-feed-${{ matrix.target.target }}
+          path: feeds/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Upload signing key
+        if: matrix.target.target == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-key
+          path: |
+            signing-key/*
+            !signing-key/key-build
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Install (go-)task
+        run: |
+          wget -q http://github.com/go-task/task/releases/latest/download/task_linux_amd64.deb
+          sudo dpkg --install task_linux_amd64.deb
+          rm task_linux_amd64.deb
+
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4          
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download feeds
+        uses: actions/download-artifact@v4
+        with:
+          path: feeds
+          pattern: owrt-feed-*
+          merge-multiple: true
+
+      - name: Download signing key
+        uses: actions/download-artifact@v4
+        with:
+          path: signing-key
+          name: signing-key
+
+      - name: Prepare feeds
+        run: task -o ${{ env.TASK_OUTPUT_MODE }} feeds-prepare
+        env:
+          GIT_COMMIT: '${{steps.checkout.outputs.commit}}'
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: feeds
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4          

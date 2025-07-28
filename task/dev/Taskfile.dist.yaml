@@ -1,0 +1,31 @@
+version: '3'
+
+vars:
+  STAGING_BIN_DIR: '{{joinPath .ROOT_DIR "openwrt-sdk" "staging_dir" "host" "bin"}}'
+  PATCH_FILE: '{{joinPath .ROOT_DIR "openwrt" "golang" "golang.patch"}}'
+
+tasks:
+  packages-create-patch:
+    dir: openwrt-sdk/feeds/packages/lang/golang
+    vars:
+      GIT_BIN: '{{joinPath .STAGING_BIN_DIR "git"}}'
+    preconditions:
+      - sh: test -x {{relPath .TASK_DIR .GIT_BIN | shellQuote}}
+        msg: 'Command not found: {{relPath .TASK_DIR .GIT_BIN}}'
+    desc: Create patch of packages feed
+    cmds:
+      - '{{relPath .TASK_DIR .GIT_BIN | shellQuote}} diff . > {{relPath .TASK_DIR .PATCH_FILE | shellQuote}}'
+
+  packages-apply-patch:
+    dir: openwrt-sdk/feeds/packages
+    vars:
+      PATCH_BIN: '{{joinPath .STAGING_BIN_DIR "patch"}}'
+      TASK_CHECKER: '{{joinPath .ROOT_DIR "openwrt-sdk" "feeds" "packages" ".golang-patched"}}'
+    preconditions:
+      - sh: test -x {{relPath .TASK_DIR .PATCH_BIN | shellQuote}}
+        msg: 'Command not found: {{relPath .TASK_DIR .PATCH_BIN}}'
+    status:
+      - test -f {{relPath .TASK_DIR .TASK_CHECKER | shellQuote}}      
+    cmds:
+      - '{{relPath .TASK_DIR .PATCH_BIN | shellQuote}} -s -p1 -i {{relPath .TASK_DIR .PATCH_FILE | shellQuote}}'
+      - touch {{relPath .TASK_DIR .TASK_CHECKER | shellQuote}}

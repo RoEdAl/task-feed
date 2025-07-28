@@ -1,0 +1,7 @@
+# CONFIG_ALL is not set
+# CONFIG_ALL_KMODS is not set
+# CONFIG_ALL_NONSHARED is not set
+# CONFIG_DEVEL is not set
+CONFIG_SIGNED_PACKAGES=y
+CONFIG_PACKAGE_go-task=m
+CONFIG_PACKAGE_gomplate=m
