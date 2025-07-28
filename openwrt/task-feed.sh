@@ -4,7 +4,7 @@ readonly FEEDS_URL=https://roedal.github.io/task-feed
 readonly FINGERPRINT=5e469ef69a7a32b4
 
 echoerr() {
-  echo "$@" | logger -st graphite-feed
+  echo "$@" | logger -st task-feed
 }
 
 get_distrib_arch() {
@@ -28,16 +28,16 @@ if [ -z "$ARCH" ]; then
 fi
 echoerr Architecture: $ARCH
 
-readonly FEED_URL="$FEEDS_URL/$ARCH/graphite"
+readonly FEED_URL="$FEEDS_URL/$ARCH/gomplate"
 if ! test_feed "$FEED_URL"; then
   echoerr Error - invalid feed URL: $FEED_URL
   exit 1
 fi
 
-readonly CUSTOM_FEED=$(cat /etc/opkg/customfeeds.conf | grep graphite)
+readonly CUSTOM_FEED=$(cat /etc/opkg/customfeeds.conf | grep gomplate)
 if [ -z "$CUSTOM_FEED" ]; then
   echoerr Installing feed: $FEED_URL
-  echo "src/gz graphite $FEED_URL" >>/etc/opkg/customfeeds.conf
+  echo "src/gz gomplate $FEED_URL" >>/etc/opkg/customfeeds.conf
   if [ $? -ne 0 ]; then
     exit 1
   fi
