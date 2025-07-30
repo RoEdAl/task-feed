@@ -5,3 +5,4 @@
 CONFIG_SIGNED_PACKAGES=y
 CONFIG_PACKAGE_go-task=m
 CONFIG_PACKAGE_gomplate=m
+CONFIG_PACKAGE_go-template-cli=m

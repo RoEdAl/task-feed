@@ -16,6 +16,10 @@
   A flexible [commandline tool](https://docs.gomplate.ca/) for template rendering. \
   Supports lots of local and remote datasources.
 
+* [bluebrown/go-template-cli](https://github.com/bluebrown/go-template-cli)
+
+  Render *json*, *yaml* & *toml* with *go* templates, from the command line.
+
 ## Installation
 
 ### Download and run [installation script](https://github.com/RoEdAl/task-feed/blob/main/openwrt/task-feed.sh)
