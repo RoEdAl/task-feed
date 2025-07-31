@@ -11,10 +11,10 @@ env:
   LC_COLLATE: en_US.utf8
 
 vars:
-  PKGS: >-
-    go-task
-    gomplate
-    go-template-cli
+  PKGS:
+    - go-task
+    - gomplate
+    - go-template-cli
 
 tasks:
   signing-key-create:
@@ -109,7 +109,7 @@ tasks:
       - ./scripts/feeds update -a
       - task: 'dev:packages-apply-patch'
       - ./scripts/feeds install -a
-      - ./scripts/feeds install {{.PKGS}}
+      - ./scripts/feeds install {{.PKGS | join " "}}
 
   feeds-init:
     internal: true
@@ -137,8 +137,7 @@ tasks:
     desc: Clean-up packages
     dir: openwrt-sdk
     cmds:
-      - for: { var: PKGS }
-        cmd: make package/{{.ITEM}}/clean {{.CLI_ARGS}}
+      - cmd: make -j{{numCPU}} {{range .PKGS}}package/{{.}}/clean {{end}}
 
   package-index:
     desc: Index packages
