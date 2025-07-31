@@ -1,8 +1,20 @@
+diff --git a/lang/golang/golang-package.mk b/lang/golang/golang-package.mk
+index cc00505..8edcb27 100644
+--- a/lang/golang/golang-package.mk
++++ b/lang/golang/golang-package.mk
+@@ -200,6 +200,7 @@ GO_PKG_TARGET_VARS= \
+ 	GO386="$(GO_386)" \
+ 	GOAMD64="$(GO_AMD64)" \
+ 	GOARM="$(GO_ARM)" \
++	GOARM64="$(GO_ARM64)" \
+ 	GOMIPS="$(GO_MIPS)" \
+ 	GOMIPS64="$(GO_MIPS64)" \
+ 	GOPPC64="$(GO_PPC64)" \
 diff --git a/lang/golang/golang-values.mk b/lang/golang/golang-values.mk
-index d57de5f..098b918 100644
+index d57de5f..18c67f3 100644
 --- a/lang/golang/golang-values.mk
 +++ b/lang/golang/golang-values.mk
-@@ -167,17 +167,22 @@ else ifeq ($(GO_ARCH),amd64)
+@@ -167,17 +167,30 @@ else ifeq ($(GO_ARCH),amd64)
    GO_AMD64:=v1
  
  else ifeq ($(GO_ARCH),arm)
@@ -10,15 +22,9 @@ index d57de5f..098b918 100644
 -
 -  # FPU names from https://gcc.gnu.org/onlinedocs/gcc-8.4.0/gcc/ARM-Options.html#index-mfpu-1
 -  # see also https://github.com/gcc-mirror/gcc/blob/releases/gcc-8.4.0/gcc/config/arm/arm-cpus.in
--
--  ifeq ($(GO_TARGET_FPU),)
--    GO_ARM:=5
--  else ifneq ($(filter $(GO_TARGET_FPU),vfp vfpv2),)
--    GO_ARM:=6
--  else
 +  GO_TARGET_CORE:=$(word 1,$(subst +,$(space),$(call qstrip,$(CONFIG_CPU_TYPE))))
-+  ifneq ($(filter $(ARM_TARGET_CORE),cortex-a7 cortex-a8 cortex-a9 cortex-a15),)
-     GO_ARM:=7
++  ifneq ($(filter $(GO_TARGET_CORE),cortex-a7 cortex-a8 cortex-a9 cortex-a15),)
++    GO_ARM:=7
 +  else
 +    GO_TARGET_FPU:=$(word 2,$(subst +,$(space),$(call qstrip,$(CONFIG_CPU_TYPE))))
 +
@@ -32,6 +38,19 @@ index d57de5f..098b918 100644
 +    else
 +      GO_ARM:=7
 +    endif
++  endif
+ 
+-  ifeq ($(GO_TARGET_FPU),)
+-    GO_ARM:=5
+-  else ifneq ($(filter $(GO_TARGET_FPU),vfp vfpv2),)
+-    GO_ARM:=6
++else ifeq ($(GO_ARCH),arm64)
++  GO_TARGET_CORE:=$(word 1,$(subst +,$(space),$(call qstrip,$(CONFIG_CPU_TYPE))))
++  ifneq ($(filter $(GO_TARGET_CORE),cortex-a76),)
++    GO_ARM64:=v8.2,crypto
+   else
+-    GO_ARM:=7
++    GO_ARM64:=v8.0
    endif
  
  else ifneq ($(filter $(GO_ARCH),mips mipsle),)
