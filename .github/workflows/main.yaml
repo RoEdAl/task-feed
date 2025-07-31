@@ -1,4 +1,4 @@
-name: Deploy OpenWRT fedds to GiHub Pages
+name: Deploy OpenWRT feeds to GiHub Pages
 
 on:
   # Runs on pushes targeting the default branch
