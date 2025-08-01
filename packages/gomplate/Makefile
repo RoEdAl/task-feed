@@ -2,11 +2,10 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gomplate
 PKG_VERSION:=4.3.3
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 
 PKG_MAINTAINER:=Edmunt Pienkowsky <roed@onet.eu>
 PKG_LICENSE:=MIT
-PKG_LICENSE_FILES:=LICENSE
 
 PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1

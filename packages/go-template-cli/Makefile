@@ -2,11 +2,10 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=go-template-cli
 PKG_VERSION:=0.3.2
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_MAINTAINER:=Edmunt Pienkowsky <roed@onet.eu>
 PKG_LICENSE:=OBSD
-PKG_LICENSE_FILES:=LICENSE
 
 PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1
