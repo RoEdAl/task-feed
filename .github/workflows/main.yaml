@@ -106,8 +106,8 @@ jobs:
       - name: Calculate image name and URL
         id: owrtsdk
         run: |
-          image_name=openwrt-sdk-24.10.2-${{matrix.target.sdk-name}}.Linux-x86_64
-          image_url=http://downloads.openwrt.org/releases/24.10.2/targets/${{matrix.target.sdk-path}}
+          image_name=openwrt-sdk-24.10.3-${{matrix.target.sdk-name}}.Linux-x86_64
+          image_url=http://downloads.openwrt.org/releases/24.10.3/targets/${{matrix.target.sdk-path}}
           echo "IMAGE_NAME=$image_name" >> $GITHUB_OUTPUT
           echo "IMAGE_URL=$image_url" >> $GITHUB_OUTPUT
 
