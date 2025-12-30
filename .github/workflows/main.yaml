@@ -94,11 +94,8 @@ jobs:
           sudo apt-get -qq update -y
           sudo apt-get -qq -o Dpkg::Use-Pty=0 -o APT::Acquire::Retries=10 install -y --no-install-recommends python3-pyelftools
 
-      - name: Install (go-)task
-        run: |
-          wget -q http://github.com/go-task/task/releases/latest/download/task_linux_amd64.deb
-          sudo dpkg --install task_linux_amd64.deb
-          rm task_linux_amd64.deb
+      - name: Install Task
+        uses: go-task/setup-task@v1
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -163,11 +160,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Install (go-)task
-        run: |
-          wget -q http://github.com/go-task/task/releases/latest/download/task_linux_amd64.deb
-          sudo dpkg --install task_linux_amd64.deb
-          rm task_linux_amd64.deb
+      - name: Install Task
+        uses: go-task/setup-task@v1
 
       - name: Checkout
         id: checkout
