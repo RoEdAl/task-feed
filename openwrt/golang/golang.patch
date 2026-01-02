@@ -55,7 +55,7 @@ index 727739e..fc85684 100644
  
  else ifneq ($(filter $(GO_ARCH),mips mipsle),)
 diff --git a/lang/golang/golang/Makefile b/lang/golang/golang/Makefile
-index d71cc7c..f8a3238 100644
+index fc12f03..1039f56 100644
 --- a/lang/golang/golang/Makefile
 +++ b/lang/golang/golang/Makefile
 @@ -7,8 +7,8 @@
@@ -65,7 +65,7 @@ index d71cc7c..f8a3238 100644
 -GO_VERSION_MAJOR_MINOR:=1.23
 -GO_VERSION_PATCH:=12
 +GO_VERSION_MAJOR_MINOR:=1.25
-+GO_VERSION_PATCH:=1
++GO_VERSION_PATCH:=5
  
  PKG_NAME:=golang
  PKG_VERSION:=$(GO_VERSION_MAJOR_MINOR)$(if $(GO_VERSION_PATCH),.$(GO_VERSION_PATCH))
@@ -74,7 +74,7 @@ index d71cc7c..f8a3238 100644
  PKG_SOURCE:=go$(PKG_VERSION).src.tar.gz
  PKG_SOURCE_URL:=$(GO_SOURCE_URLS)
 -PKG_HASH:=e1cce9379a24e895714a412c7ddd157d2614d9edbe83a84449b6e1840b4f1226
-+PKG_HASH:=d010c109cee94d80efe681eab46bdea491ac906bf46583c32e9f0dbb0bd1a594
++PKG_HASH:=22a5fd0a91efcd28a1b0537106b9959b2804b61f59c3758b51e8e5429c1a954f
  
  PKG_MAINTAINER:=Jeffery To <jeffery.to@gmail.com>
  PKG_LICENSE:=BSD-3-Clause
@@ -131,15 +131,7 @@ index d71cc7c..f8a3238 100644
  # Host
  
  ifeq ($(GO_HOST_PIE_SUPPORTED),1)
-@@ -267,6 +292,7 @@ endef
- define Host/Compile
- 	$(call GoCompiler/Bootstrap/Make, \
- 		$(HOST_GO_VARS) \
-+		CC="$(HOSTCC_NOCACHE) -std=gnu17" \
- 	)
- 
- 	$(call GoCompiler/Bootstrap-1.17/Make, \
-@@ -279,8 +305,13 @@ define Host/Compile
+@@ -280,8 +305,13 @@ define Host/Compile
  		$(HOST_GO_VARS) \
  	)
  
@@ -154,3 +146,11 @@ index d71cc7c..f8a3238 100644
  		$(if $(HOST_GO_ENABLE_PIE),GO_LDFLAGS="-buildmode pie") \
  		$(HOST_GO_VARS) \
  	)
+@@ -327,6 +357,7 @@ PKG_GO_ZBOOTSTRAP_MODS:= \
+ 	s/defaultGO386 = `[^`]*`/defaultGO386 = `$(or $(GO_386),sse2)`/; \
+ 	s/defaultGOAMD64 = `[^`]*`/defaultGOAMD64 = `$(or $(GO_AMD64),v1)`/; \
+ 	s/defaultGOARM = `[^`]*`/defaultGOARM = `$(or $(GO_ARM),7)`/; \
++	s/defaultGOARM64 = `[^`]*`/defaultGOARM64 = `$(or $(GO_ARM64),v8.0)`/; \
+ 	s/defaultGOMIPS = `[^`]*`/defaultGOMIPS = `$(or $(GO_MIPS),hardfloat)`/; \
+ 	s/defaultGOMIPS64 = `[^`]*`/defaultGOMIPS64 = `$(or $(GO_MIPS64),hardfloat)`/; \
+ 	s/defaultGOPPC64 = `[^`]*`/defaultGOPPC64 = `$(or $(GO_PPC64),power8)`/;
