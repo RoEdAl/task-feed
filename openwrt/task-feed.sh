@@ -1,7 +1,6 @@
 #!/bin/sh
 
 readonly FEEDS_URL=https://roedal.github.io/task-feed
-readonly FINGERPRINT=5e469ef69a7a32b4
 
 echoerr() {
   echo "$@" | logger -st task-feed
@@ -13,7 +12,7 @@ get_distrib_arch() {
 }
 
 test_feed() {
-  wget -qO /dev/null "$1/Packages.manifest"
+  wget -qO /dev/null "$1/packages.adb"
 }
 
 if [ ! -s /etc/openwrt_release ]; then
@@ -26,7 +25,7 @@ if [ -z "$ARCH" ]; then
   echoerr Error - unable to read architecture
   exit 1
 fi
-echoerr Architecture: $ARCH
+echo Architecture: $ARCH
 
 readonly FEED_URL="$FEEDS_URL/$ARCH/gomplate"
 if ! test_feed "$FEED_URL"; then
@@ -34,22 +33,24 @@ if ! test_feed "$FEED_URL"; then
   exit 1
 fi
 
-readonly CUSTOM_FEED=$(cat /etc/opkg/customfeeds.conf | grep gomplate)
-if [ -z "$CUSTOM_FEED" ]; then
-  echoerr Installing feed: $FEED_URL
-  echo "src/gz gomplate $FEED_URL" >>/etc/opkg/customfeeds.conf
+readonly REPO_LIST=/etc/apk/repositories.d/gomplate.list
+if [ ! -s "$REPO_LIST" ]; then
+  echo Repository: $FEED_URL
+  echo "$FEED_URL/packages.adb" > $REPO_LIST
   if [ $? -ne 0 ]; then
+    echoerr Error installing repository
     exit 1
   fi
 fi
 
-readonly SIGNING_KEY="/etc/opkg/keys/$FINGERPRINT"
+readonly SIGNING_KEY="/etc/apk/keys/gomplate.pem"
 if [ ! -s "$SIGNING_KEY" ]; then
-  echoerr Installing signing key: $FINGERPRINT
-  if ! wget -qO $SIGNING_KEY "$FEEDS_URL/signing-key/$FINGERPRINT"; then
+  echo Installing signing key
+  if ! wget -qO $SIGNING_KEY "$FEEDS_URL/signing-key/gomplate.pem"; then
+    echoerr Error installing signing key
     exit 1
   fi
 fi
 
-echoerr Done
+echo Done
 exit 0

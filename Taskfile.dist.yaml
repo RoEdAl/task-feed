@@ -21,77 +21,54 @@ tasks:
     run: once
     desc: Prepare signing keys
     status:
-      - test -s signing-key/key-build
-      - test -s signing-key/key-build.pub
+      - test -s signing-key/private-key.pem
+      - test -s signing-key/public-key.pem
     preconditions:
-      - sh: test -x openwrt-sdk/staging_dir/host/bin/usign
-        msg: usign utility not found
+      - sh: test -x openwrt-sdk/staging_dir/host/bin/openssl
+        msg: openssl utility not found
     cmds:
       - cmd: mkdir -p signing-key
-      - cmd: |
-          #
-          # https://openwrt.org/docs/guide-user/security/keygen#obtain_usign
-          #
-          openwrt-sdk/staging_dir/host/bin/usign -G \
-            -c 'OpenWRT usign key of Edmunt Pienkowsky' \
-            -s signing-key/key-build \
-            -p signing-key/key-build.pub
-        silent: true
-
-  signing-key-fingerprint:
-    desc: Compute fingerprint of signing key
-    deps:
-      - signing-key-create
-    preconditions:
-      - sh: test -x openwrt-sdk/staging_dir/host/bin/usign
-        msg: usign utility not found
-      - sh: test -s signing-key/key-build.pub
-        msg: Signing key not found
-    vars:
-      FINGERPRINT:
-        sh: openwrt-sdk/staging_dir/host/bin/usign -F -p signing-key/key-build.pub
-    cmds:
-      - echo '{{.FINGERPRINT}}' > signing-key/fingerprint
-      - touch -cr signing-key/key-build.pub signing-key/fingerprint
+      - cmd: >-
+          openwrt-sdk/staging_dir/host/bin/openssl ecparam
+          -name prime256v1
+          -genkey
+          -noout
+          -out signing-key/private-key.pem
+      - cmd: >-
+          openwrt-sdk/staging_dir/host/bin/openssl ec
+          -in signing-key/private-key.pem
+          -pubout > signing-key/public-key.pem
 
   signing-key-copy:
     desc: Copy signing keys to OpenWRT SDK directory
     status:
-      - test -s openwrt-sdk/key-build
-      - test -s openwrt-sdk/key-build.pub
+      - test -s openwrt-sdk/private-key.pem
+      - test -s openwrt-sdk/public-key.pem
     preconditions:
       - sh: test -d openwrt-sdk
         msg: OpenWRT SDK not installed
     deps:
       - signing-key-create
     cmds:
-      - cmd: cp signing-key/key-build openwrt-sdk
-        silent: true
-      - cmd: cp signing-key/key-build.pub openwrt-sdk
-        silent: true
+      - cmd: cp signing-key/private-key.pem openwrt-sdk
+      - cmd: cp signing-key/public-key.pem openwrt-sdk
 
   signing-key-init:
     internal: true
     cmds:
       - task: signing-key-create
-      - task: signing-key-fingerprint
       - task: signing-key-copy
 
   signing-key-publish:
     desc: Publish signing key
     preconditions:
-      - sh: test -s signing-key/key-build.pub
+      - sh: test -s signing-key/public-key.pem
         msg: Signing key not found
-      - sh: test -s signing-key/fingerprint
-        msg: Fingerprint of signing key not found
       - sh: test -d feeds
         msg: Fedds directory does not exitst
-    vars:
-      FINGERPRINT:
-        sh: cat signing-key/fingerprint
     cmds:
       - mkdir -p feeds/signing-key
-      - cp signing-key/key-build.pub feeds/signing-key/{{.FINGERPRINT}}
+      - cp signing-key/public-key.pem feeds/signing-key/gomplate.pem
 
   feeds-configure:
     desc: Configure feeds
@@ -107,7 +84,6 @@ tasks:
     dir: openwrt-sdk
     cmds:
       - ./scripts/feeds update -a
-      - task: 'dev:packages-apply-patch'
       - ./scripts/feeds install -a
       - ./scripts/feeds install {{.PKGS | join " "}}
 
@@ -235,10 +211,10 @@ tasks:
                 else
                   eclass=folder
                 fi
-              elif [ "${file##*.}" = "ipk" ]; then
+              elif [ "${file##*.}" = "apk" ]; then
                 fsize=$(stat -c%s "{{.SDIR}}/${file}")
                 hfsize=$(numfmt --to=iec ${fsize})
-                eclass=ipk
+                eclass=apk
                 echo "<tr class=\"${eclass}\"><td><a href=\"${file}\">${file}</a></td><td class=\"fsize\">${hfsize}</td></tr>"
                 continue
               elif [ "${file##*.}" = "sh" ]; then
