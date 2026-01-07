@@ -1,7 +1,11 @@
 # *OpenWRT* packages of projects using *Go* language template engine
 
 > [!IMPORTANT]
-> The only supported *OpenWRT* version is **24.10**.
+> The only supported *OpenWRT* version is **25.12**.
+
+> [!NOTE]
+> If you looking for simple and light template engine
+> try build-in [ucode](https://github.com/jow-/ucode) utility.
 
 ## Packages
 
@@ -31,16 +35,11 @@ wget -qO - https://roedal.github.io/task-feed/task-feed.sh | sh
 ### Update package list
 
 ```sh
-$ opkg update
-Downloading https://roedal.github.io/task-feed/aarch64_generic/gomplate/Packages.gz
-Updated list of available packages in /var/opkg-lists/gomplate
-Downloading https://roedal.github.io/task-feed/aarch64_generic/gomplate/Packages.sig
-Signature check passed.
-⋯
+apk update
 ```
 
 ### Install required package(s)
 
 ```sh
-opkg install go-task
+apk add go-task
 ```
