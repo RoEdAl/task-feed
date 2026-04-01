@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=gomplate
-PKG_VERSION:=4.3.3
-PKG_RELEASE:=3
+PKG_VERSION:=5.0.0
+PKG_RELEASE:=1
 
 PKG_MAINTAINER:=Edmunt Pienkowsky <roed@onet.eu>
 PKG_LICENSE:=MIT
@@ -11,7 +11,7 @@ PKG_BUILD_DEPENDS:=golang/host
 PKG_BUILD_PARALLEL:=1
 PKG_BUILD_FLAGS:=no-mips16
 
-GO_PKG:=github.com/hairyhenderson/gomplate/v4
+GO_PKG:=github.com/hairyhenderson/gomplate/v5
 GO_PKG_TAGS:=timetzdata
 
 include $(INCLUDE_DIR)/package.mk
